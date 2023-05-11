@@ -20,10 +20,6 @@ import (
 
 const wildcard = "*"
 
-type StringComponent struct {
-	Characters []frontend.Variable
-}
-
 type Circuit struct {
 	MerkleProof  merkle.MerkleProof  `gnark:",public"`
 	ProofIndex   frontend.Variable   `gnark:",public"`
@@ -41,9 +37,6 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	// Verify that RawPattern hashes to the opened pattern
 	hFunc.Reset()
 	hFunc.Write(circuit.RawPattern...)
-	// for _, elem := range circuit.RawPattern {
-	// 	hFunc.Write(elem)
-	// }
 	api.AssertIsEqual(circuit.MerkleProof.Path[0], hFunc.Sum())
 
 	// Wildcard
@@ -185,6 +178,8 @@ func main() {
 
 	var circuit Circuit
 	circuit.MerkleProof.Path = make([]frontend.Variable, depth+1)
+	circuit.ClientString = make([]frontend.Variable, len(clientString))
+	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
 
 	r1cs, err := frontend.Compile(field, r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -213,14 +208,14 @@ func main() {
 		// circuit.Offset = 0
 	}
 
-	circuit.ClientString = make([]frontend.Variable, len(clientString))
+	assignment.ClientString = make([]frontend.Variable, len(clientString))
 	for i := 0; i < len(clientString); i++ {
-		circuit.ClientString[i] = clientStringFieldElements[i]
+		assignment.ClientString[i] = clientStringFieldElements[i]
 	}
 
-	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
+	assignment.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
 	for i := 0; i < len(stringPatterns[proofIndex]); i++ {
-		circuit.RawPattern[i] = patternsFieldElements[proofIndex][i]
+		assignment.RawPattern[i] = patternsFieldElements[proofIndex][i]
 	}
 
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
