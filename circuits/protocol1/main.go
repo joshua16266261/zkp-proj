@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -25,7 +26,12 @@ type Circuit struct {
 	ProofIndex   frontend.Variable   `gnark:",public"`
 	ClientString []frontend.Variable `gnark:",public"`
 	RawPattern   []frontend.Variable
-	// Offset       frontend.Variable
+	Offset       frontend.Variable
+}
+
+func GetIthElement(field *big.Int, inputs []*big.Int, results []*big.Int) error {
+	results[0].Set(inputs[inputs[0].Uint64()+1])
+	return nil
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -44,73 +50,48 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	var wildcardFieldElement fr.Element
 	wildcardFieldElement.SetBytes([]byte(wildcard))
 
-	// Verify that at Offset, RawPattern matches the ClientString
-	// offsetBigInt, _ := api.Compiler().ConstantValue(circuit.Offset) // FIXME: At compilation time, this doesn't work and just returns nil
-	// // api.AssertIsEqual(success, 1)
-	// offset := offsetBigInt.Int64()
-	offsetBigInt, _ := api.Compiler().ConstantValue(0) // FIXME: At compilation time, this doesn't work and just returns nil
-	// api.AssertIsEqual(success, 1)
-	offset := offsetBigInt.Int64()
-	for i := int64(0); i < int64(len(circuit.RawPattern)); i++ {
-		isWildcard := api.IsZero(api.Sub(wildcardFieldElement, circuit.RawPattern[i+offset]))
-		isSame := api.IsZero(api.Sub(circuit.ClientString[i+offset], circuit.RawPattern[i+offset]))
+	for i := uint64(0); i < uint64(len(circuit.RawPattern)); i++ {
+		// Check if the element in the pattern is the wildcard
+		isWildcard := api.IsZero(api.Sub(wildcardFieldElement, circuit.RawPattern[i]))
+
+		// Check if the elements in the pattern and client string are the same
+		idx := api.Add(i, circuit.Offset)
+		var clientStringElem frontend.Variable
+		clientStringElem = 0
+		for j := 0; j < len(circuit.ClientString); j++ {
+			jIsIdx := api.IsZero(api.Cmp(j, idx))
+			clientStringElem = api.Select(jIsIdx, circuit.ClientString[j], clientStringElem)
+		}
+
+		isSame := api.IsZero(api.Sub(clientStringElem, circuit.RawPattern[i]))
 		isMatch := api.Or(isWildcard, isSame)
 
 		api.AssertIsEqual(isMatch, 1)
 	}
 
+	// for i := 0; i < len(circuit.ClientString); i++ {
+	// 	// idx is the index that this element should correspond to in RawPattern
+	// 	idx := api.Sub(i, circuit.Offset)
+
+	// 	// Check if 0 <= idx < len of pattern
+	// 	idxIsNonNegative := api.Cmp(idx, -1) // 1 if nonnegative, 0 or -1 otherwise
+	// 	idxIsNonNegative = api.Select(idxIsNonNegative, 1, 0) // 1 if nonnegative, 0 otherwise
+
+	// 	idxIsInPattern := api.Cmp(idx, len(circuit.RawPattern)) // -1 if idx < len of pattern, 0 or 1 otherwise
+	// 	idxIsInPattern = api.Neg(idxIsInPattern) // 1 if idx < len of pattern, 0 or -1 otherwise
+	// 	idxIsInPattern = api.Select(idxIsInPattern, 1, 0) // 1 if idx < len of pattern, 0 otherwise
+
+	// 	idxIsInRange := api.And(idxIsNonNegative, idxIsInPattern)
+
+	// 	// Check that element matches
+	// 	isWildcard := api.IsZero(api.Sub(wildcardFieldElement, circuit.RawPattern[idx]))
+	// 	isSame := api.IsZero(api.Sub(circuit.ClientString[i+offset], circuit.RawPattern[i]))
+	// 	isMatch := api.Or(isWildcard, isSame)
+
+	// }
+
 	return nil
 }
-
-// func getHash(pattern string) ([]byte, error) {
-// 	// GetHash hashes a string pattern into a single field element
-
-// 	// This line taken from https://github.com/ConsenSys/gnark-crypto/blob/master/ecc/bn254/fr/mimc/mimc.go
-// 	elems, err := fr.Hash([]byte(pattern), []byte("string:"), 1)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	result := elems[0].Bytes()
-// 	return result[:], nil
-// }
-
-// func charToFieldElement(char string) (frontend.Variable, error) {
-// 	b, err := getHash(char)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var elem fr.Element
-// 	return elem.SetBytes(b), nil
-// }
-
-// func stringToFieldElement(s string) (frontend.Variable, error) {
-// 	hFunc := bn254.NewMiMC()
-// 	for _, char := range s {
-// 		elem, err := charToFieldElement(string(char))
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		hFunc.Write()
-// 	}
-
-// }
-
-// func fieldElementsToString(pattern []frontend.Variable) string {
-
-// }
-
-// func getFieldElements(pattern string) [][]byte {
-// 	// GetFieldElements converts each character of a string pattern into a field element
-// 	hFunc := bn254.NewMiMC()
-// 	var fieldElems [][]byte
-// 	for _, char := range pattern {
-// 		hFunc.Reset()
-// 		fieldElems = append(fieldElems, hFunc.Sum([]byte(string(char))))
-// 	}
-// 	return fieldElems
-// }
 
 func getFieldElements(pattern string) [][]byte {
 	// GetFieldElements converts each character of a string pattern into a field element
@@ -167,7 +148,7 @@ func main() {
 
 	hGo := hash.MIMC_BN254.New()
 	segmentSize := 32
-	proofIndex := uint64(0)
+	proofIndex := uint64(1)
 	merkleRoot, proofPath, _, err := merkletree.BuildReaderProof(bytes.NewReader(buf.Bytes()), hGo, segmentSize, proofIndex)
 	// The actual value of the leaf is proofPath[0]
 	if err != nil {
@@ -180,6 +161,7 @@ func main() {
 	circuit.MerkleProof.Path = make([]frontend.Variable, depth+1)
 	circuit.ClientString = make([]frontend.Variable, len(clientString))
 	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
+	circuit.Offset = 1
 
 	r1cs, err := frontend.Compile(field, r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -205,7 +187,7 @@ func main() {
 	assignment := &Circuit{
 		MerkleProof: merkleProof,
 		ProofIndex:  proofIndex,
-		// circuit.Offset = 0
+		Offset:      3,
 	}
 
 	assignment.ClientString = make([]frontend.Variable, len(clientString))
