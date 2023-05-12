@@ -1,16 +1,14 @@
-package protocol1
+package main
 
 import (
 	"bytes"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
 	"github.com/consensys/gnark-crypto/ecc"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
@@ -19,19 +17,12 @@ import (
 	"github.com/consensys/gnark/std/hash/mimc"
 )
 
-const wildcard = "*"
-
 type Circuit struct {
 	MerkleProof  merkle.MerkleProof  `gnark:",public"`
 	ProofIndex   frontend.Variable   `gnark:",public"`
 	ClientString []frontend.Variable `gnark:",public"`
 	RawPattern   []frontend.Variable
 	Offset       frontend.Variable
-}
-
-func GetIthElement(field *big.Int, inputs []*big.Int, results []*big.Int) error {
-	results[0].Set(inputs[inputs[0].Uint64()+1])
-	return nil
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -72,35 +63,8 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	return nil
 }
 
-func getFieldElements(pattern string) [][]byte {
-	// GetFieldElements converts each character of a string pattern into a field element
-	var fieldElems [][]byte
-
-	blockSize := bn254.BlockSize
-
-	for _, char := range pattern {
-		b := make([]byte, blockSize)
-		b[blockSize-1] = byte(char)
-		fieldElems = append(fieldElems, b)
-	}
-	return fieldElems
-}
-
-func getHash(pattern string) ([]byte, error) {
-	// GetHash hashes a string pattern into a single field element
-
-	converted := getFieldElements(pattern)
-	var flattened []byte
-	for _, elem := range converted {
-		flattened = append(flattened, elem...)
-	}
-
-	return bn254.Sum(flattened)
-}
-
-func main() {
+func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, offset int) {
 	// Define patterns
-	stringPatterns := []string{"abcdefghijkl", "de*"}
 	var hashedPatterns [][]byte
 	var patternsFieldElements [][][]byte
 	for _, pattern := range stringPatterns {
@@ -115,7 +79,6 @@ func main() {
 	}
 
 	// Define client string
-	clientString := "abcdefghijkl"
 	clientStringFieldElements := getFieldElements(clientString)
 
 	// Build merkle proof
@@ -127,7 +90,6 @@ func main() {
 
 	hGo := hash.MIMC_BN254.New()
 	segmentSize := 32
-	proofIndex := uint64(1)
 	merkleRoot, proofPath, _, err := merkletree.BuildReaderProof(bytes.NewReader(buf.Bytes()), hGo, segmentSize, proofIndex)
 	// The actual value of the leaf is proofPath[0]
 	if err != nil {
@@ -140,7 +102,6 @@ func main() {
 	circuit.MerkleProof.Path = make([]frontend.Variable, depth+1)
 	circuit.ClientString = make([]frontend.Variable, len(clientString))
 	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
-	circuit.Offset = 1
 
 	r1cs, err := frontend.Compile(field, r1cs.NewBuilder, &circuit)
 	if err != nil {
@@ -166,7 +127,7 @@ func main() {
 	assignment := &Circuit{
 		MerkleProof: merkleProof,
 		ProofIndex:  proofIndex,
-		Offset:      3,
+		Offset:      offset,
 	}
 
 	assignment.ClientString = make([]frontend.Variable, len(clientString))
@@ -183,6 +144,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Witness creation failed:", err)
 	}
+
 	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		fmt.Printf("Prove failed: %v\n", err)
@@ -200,10 +162,4 @@ func main() {
 		return
 	}
 	fmt.Printf("verification succeded\n")
-
-}
-
-func Main() {
-	// FIXME: This is pretty jank
-	main()
 }

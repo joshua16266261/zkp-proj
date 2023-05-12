@@ -1,10 +1,18 @@
 package main
 
-// import "zkp-proj/circuits/protocol0"
+import "fmt"
 
-import "zkp-proj/circuits/protocol1"
+const wildcard = "*"
 
 func main() {
-	// protocol0.Main()
-	protocol1.Main()
+	stringPatterns := []string{"abcdefghijkl", "de*"}
+	clientString := "abcdefghijkl"
+	proofIndex := uint64(0)
+	offset := 0
+
+	fmt.Println("---------------- PROTOCOL 0 ----------------")
+	Protocol0(stringPatterns, clientString, proofIndex)
+
+	fmt.Println("---------------- PROTOCOL 1 ----------------")
+	Protocol1(stringPatterns, clientString, proofIndex, offset)
 }
