@@ -50,7 +50,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	var wildcardFieldElement fr.Element
 	wildcardFieldElement.SetBytes([]byte(wildcard))
 
-	for i := uint64(0); i < uint64(len(circuit.RawPattern)); i++ {
+	for i := 0; i < len(circuit.RawPattern); i++ {
 		// Check if the element in the pattern is the wildcard
 		isWildcard := api.IsZero(api.Sub(wildcardFieldElement, circuit.RawPattern[i]))
 
@@ -58,7 +58,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 		idx := api.Add(i, circuit.Offset)
 		var clientStringElem frontend.Variable
 		clientStringElem = 0
-		for j := 0; j < len(circuit.ClientString); j++ {
+		for j := i; j < len(circuit.ClientString); j++ {
 			jIsIdx := api.IsZero(api.Cmp(j, idx))
 			clientStringElem = api.Select(jIsIdx, circuit.ClientString[j], clientStringElem)
 		}
@@ -68,27 +68,6 @@ func (circuit *Circuit) Define(api frontend.API) error {
 
 		api.AssertIsEqual(isMatch, 1)
 	}
-
-	// for i := 0; i < len(circuit.ClientString); i++ {
-	// 	// idx is the index that this element should correspond to in RawPattern
-	// 	idx := api.Sub(i, circuit.Offset)
-
-	// 	// Check if 0 <= idx < len of pattern
-	// 	idxIsNonNegative := api.Cmp(idx, -1) // 1 if nonnegative, 0 or -1 otherwise
-	// 	idxIsNonNegative = api.Select(idxIsNonNegative, 1, 0) // 1 if nonnegative, 0 otherwise
-
-	// 	idxIsInPattern := api.Cmp(idx, len(circuit.RawPattern)) // -1 if idx < len of pattern, 0 or 1 otherwise
-	// 	idxIsInPattern = api.Neg(idxIsInPattern) // 1 if idx < len of pattern, 0 or -1 otherwise
-	// 	idxIsInPattern = api.Select(idxIsInPattern, 1, 0) // 1 if idx < len of pattern, 0 otherwise
-
-	// 	idxIsInRange := api.And(idxIsNonNegative, idxIsInPattern)
-
-	// 	// Check that element matches
-	// 	isWildcard := api.IsZero(api.Sub(wildcardFieldElement, circuit.RawPattern[idx]))
-	// 	isSame := api.IsZero(api.Sub(circuit.ClientString[i+offset], circuit.RawPattern[i]))
-	// 	isMatch := api.Or(isWildcard, isSame)
-
-	// }
 
 	return nil
 }
