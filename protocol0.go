@@ -91,13 +91,11 @@ func Protocol0(stringPatterns []string, clientString string) {
 		leaves[i] = &stringData{expandedPatterns[i]}
 	}
 
-	tree, err := merkletree.New(
-		&merkletree.Config{
-			Mode:          merkletree.ModeProofGenAndTreeBuild,
-			RunInParallel: true,
-		},
-		leaves,
-	)
+	config := merkletree.Config{
+		Mode:          merkletree.ModeProofGenAndTreeBuild,
+		RunInParallel: true,
+	}
+	tree, err := merkletree.New(&config, leaves)
 	if err != nil {
 		fmt.Println("failed to build merkle tree:", err)
 		return
@@ -118,7 +116,7 @@ func Protocol0(stringPatterns []string, clientString string) {
 
 	// Verify merkle proof
 	start = time.Now()
-	isValidProof, err := tree.Verify(&stringData{clientString}, proof)
+	isValidProof, err := merkletree.Verify(&stringData{clientString}, proof, tree.Root, &config)
 	if err != nil {
 		fmt.Println("error verifying proof:", err)
 		return
