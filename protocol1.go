@@ -64,7 +64,7 @@ func (circuit *Circuit) Define(api frontend.API) error {
 }
 
 func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, offset int) {
-	// Define patterns
+	// Convert patterns to field element vectors and hashes
 	var hashedPatterns [][]byte
 	var patternsFieldElements [][][]byte
 	for _, pattern := range stringPatterns {
@@ -78,7 +78,7 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		patternsFieldElements = append(patternsFieldElements, getFieldElements(pattern))
 	}
 
-	// Define client string
+	// Convert clientString to field element vector
 	clientStringFieldElements := getFieldElements(clientString)
 
 	// Build merkle proof
@@ -145,6 +145,7 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		fmt.Println("Witness creation failed:", err)
 	}
 
+	// Prove
 	proof, err := groth16.Prove(r1cs, pk, witness)
 	if err != nil {
 		fmt.Printf("Prove failed: %v\n", err)
