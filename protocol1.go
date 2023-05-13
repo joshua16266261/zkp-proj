@@ -19,7 +19,8 @@ import (
 )
 
 type Circuit struct {
-	MerkleProof      merkle.MerkleProof
+	MerkleRoot       frontend.Variable `gnark:",public"`
+	MerkleProofPath  []frontend.Variable
 	ProofIndex       frontend.Variable
 	ClientString     []frontend.Variable
 	ClientStringHash frontend.Variable `gnark:",public"`
@@ -31,12 +32,16 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	hFunc, _ := mimc.NewMiMC(api)
 
 	// Verify MerkleProof
-	circuit.MerkleProof.VerifyProof(api, &hFunc, circuit.ProofIndex)
+	combinedMerkleProof := merkle.MerkleProof{
+		RootHash: circuit.MerkleRoot,
+		Path:     circuit.MerkleProofPath,
+	}
+	combinedMerkleProof.VerifyProof(api, &hFunc, circuit.ProofIndex)
 
 	// Verify that RawPattern hashes to the opened pattern
 	hFunc.Reset()
 	hFunc.Write(circuit.RawPattern...)
-	api.AssertIsEqual(circuit.MerkleProof.Path[0], hFunc.Sum())
+	api.AssertIsEqual(circuit.MerkleProofPath[0], hFunc.Sum())
 
 	// Verify that ClientString hashes to ClientStringHash
 	hFunc.Reset()
@@ -137,7 +142,7 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 	depth := int(math.Ceil(math.Log2(float64(len(hashedPatterns)))))
 
 	var circuit Circuit
-	circuit.MerkleProof.Path = make([]frontend.Variable, depth+1)
+	circuit.MerkleProofPath = make([]frontend.Variable, depth+1)
 	circuit.ClientString = make([]frontend.Variable, len(clientString))
 	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
 
@@ -153,20 +158,17 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		return
 	}
 
-	var merkleProof merkle.MerkleProof
-	merkleProof.RootHash = merkleRoot
-
-	merkleProof.Path = make([]frontend.Variable, depth+1)
-	for i := 0; i < depth+1; i++ {
-		merkleProof.Path[i] = proofPath[i]
-	}
-
 	// Full witness
 	assignment := &Circuit{
-		MerkleProof:      merkleProof,
+		MerkleRoot:       merkleRoot,
 		ProofIndex:       proofIndex,
 		Offset:           offset,
 		ClientStringHash: clientStringHash,
+	}
+
+	assignment.MerkleProofPath = make([]frontend.Variable, depth+1)
+	for i := 0; i < depth+1; i++ {
+		assignment.MerkleProofPath[i] = proofPath[i]
 	}
 
 	assignment.ClientString = make([]frontend.Variable, len(clientString))
