@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
@@ -61,6 +62,32 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	}
 
 	return nil
+}
+
+func getFieldElements(pattern string) [][]byte {
+	// GetFieldElements converts each character of a string pattern into a field element
+	var fieldElems [][]byte
+
+	blockSize := bn254.BlockSize
+
+	for _, char := range pattern {
+		b := make([]byte, blockSize)
+		b[blockSize-1] = byte(char)
+		fieldElems = append(fieldElems, b)
+	}
+	return fieldElems
+}
+
+func getHash(pattern string) ([]byte, error) {
+	// GetHash hashes a string pattern into a single field element
+
+	converted := getFieldElements(pattern)
+	var flattened []byte
+	for _, elem := range converted {
+		flattened = append(flattened, elem...)
+	}
+
+	return bn254.Sum(flattened)
 }
 
 func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, offset int) {
