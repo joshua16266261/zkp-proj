@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"math"
 
 	"github.com/consensys/gnark-crypto/accumulator/merkletree"
 	"github.com/consensys/gnark-crypto/ecc"
@@ -139,10 +138,10 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		fmt.Println(err)
 		return
 	}
-	depth := int(math.Ceil(math.Log2(float64(len(hashedPatterns)))))
+	// depth := int(math.Ceil(math.Log2(float64(len(hashedPatterns)))))
 
 	var circuit Circuit
-	circuit.MerkleProofPath = make([]frontend.Variable, depth+1)
+	circuit.MerkleProofPath = make([]frontend.Variable, len(proofPath))
 	circuit.ClientString = make([]frontend.Variable, len(clientString))
 	circuit.RawPattern = make([]frontend.Variable, len(stringPatterns[proofIndex]))
 
@@ -166,8 +165,8 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		ClientStringHash: clientStringHash,
 	}
 
-	assignment.MerkleProofPath = make([]frontend.Variable, depth+1)
-	for i := 0; i < depth+1; i++ {
+	assignment.MerkleProofPath = make([]frontend.Variable, len(proofPath))
+	for i := 0; i < len(proofPath); i++ {
 		assignment.MerkleProofPath[i] = proofPath[i]
 	}
 

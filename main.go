@@ -8,7 +8,7 @@ import (
 
 const wildcard = "*"
 
-var alphabet = strings.Split("abcdefghijklmnopqrstuvwxyz", "")
+var alphabet = strings.Split("abcde", "")
 
 func randPatternsAndString(numPatterns, patternLen, clientStringLen, numWildcards int) ([]string, string, uint64, int) {
 	clientString := ""
@@ -50,18 +50,18 @@ func main() {
 	// proofIndex := uint64(0)
 	// offset := 2
 
-	numPatterns := 2
-	patternLen := 3
-	clientStringLen := 6
-	numWildcards := 1
+	numPatterns := 6
+	patternLen := 7
+	clientStringLen := 10
+	numWildcards := 3
 	stringPatterns, clientString, proofIndex, offset := randPatternsAndString(numPatterns, patternLen, clientStringLen, numWildcards)
 	fmt.Println("---------------- INPUT DATA ----------------")
 	fmt.Println("Number of patterns:", numPatterns)
 	fmt.Println("Pattern length:", patternLen)
 	fmt.Println("Client string length:", clientStringLen)
 	fmt.Println("Number of wildcards in each pattern:", numWildcards)
-	fmt.Println("Client string:", clientString)
-	fmt.Println("Matched pattern:", stringPatterns[proofIndex])
+	// fmt.Println("Client string:", clientString)
+	// fmt.Println("Matched pattern:", stringPatterns[proofIndex])
 
 	fmt.Println("---------------- PROTOCOL 0 ----------------")
 	Protocol0(stringPatterns, clientString)

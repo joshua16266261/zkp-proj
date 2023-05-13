@@ -76,6 +76,7 @@ func (s *stringData) Serialize() ([]byte, error) {
 
 func Protocol0(stringPatterns []string, clientString string) {
 	// Expand out wildcards and offsets in patterns
+	start := time.Now()
 	fmt.Println("Expanding patterns...")
 	expandedPatterns := []string{}
 	for _, pattern := range stringPatterns {
@@ -85,7 +86,6 @@ func Protocol0(stringPatterns []string, clientString string) {
 
 	// Build merkle tree
 	fmt.Println("Building merkle tree...")
-	start := time.Now()
 	leaves := make([]merkletree.DataBlock, len(expandedPatterns))
 	for i := range expandedPatterns {
 		leaves[i] = &stringData{expandedPatterns[i]}
