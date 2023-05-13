@@ -81,6 +81,7 @@ func Protocol0(stringPatterns []string, clientString string) {
 	for _, pattern := range stringPatterns {
 		expandedPatterns = append(expandedPatterns, expandPattern(pattern, len(clientString)-len(pattern))...)
 	}
+	fmt.Println("Number of patterns after expansion:", len(expandedPatterns))
 
 	// Build merkle tree
 	fmt.Println("Building merkle tree...")

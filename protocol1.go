@@ -162,5 +162,5 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		fmt.Printf("verification failed: %v\n", err)
 		return
 	}
-	fmt.Printf("verification succeded\n")
+	fmt.Println("Verification succeeded")
 }
