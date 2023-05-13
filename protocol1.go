@@ -19,11 +19,12 @@ import (
 )
 
 type Circuit struct {
-	MerkleProof  merkle.MerkleProof  `gnark:",public"`
-	ProofIndex   frontend.Variable   `gnark:",public"`
-	ClientString []frontend.Variable `gnark:",public"`
-	RawPattern   []frontend.Variable
-	Offset       frontend.Variable
+	MerkleProof      merkle.MerkleProof
+	ProofIndex       frontend.Variable
+	ClientString     []frontend.Variable
+	ClientStringHash frontend.Variable `gnark:",public"`
+	RawPattern       []frontend.Variable
+	Offset           frontend.Variable
 }
 
 func (circuit *Circuit) Define(api frontend.API) error {
@@ -36,6 +37,11 @@ func (circuit *Circuit) Define(api frontend.API) error {
 	hFunc.Reset()
 	hFunc.Write(circuit.RawPattern...)
 	api.AssertIsEqual(circuit.MerkleProof.Path[0], hFunc.Sum())
+
+	// Verify that ClientString hashes to ClientStringHash
+	hFunc.Reset()
+	hFunc.Write(circuit.ClientString...)
+	api.AssertIsEqual(circuit.ClientStringHash, hFunc.Sum())
 
 	// Wildcard
 	hFunc.Reset()
@@ -105,8 +111,13 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 		patternsFieldElements = append(patternsFieldElements, getFieldElements(pattern))
 	}
 
-	// Convert clientString to field element vector
+	// Convert clientString to field element vector and hash
 	clientStringFieldElements := getFieldElements(clientString)
+	clientStringHash, err := getHash(clientString)
+	if err != nil {
+		fmt.Println("Error hashing client string:", err)
+		return
+	}
 
 	// Build merkle proof
 	field := ecc.BN254.ScalarField()
@@ -152,9 +163,10 @@ func Protocol1(stringPatterns []string, clientString string, proofIndex uint64, 
 
 	// Full witness
 	assignment := &Circuit{
-		MerkleProof: merkleProof,
-		ProofIndex:  proofIndex,
-		Offset:      offset,
+		MerkleProof:      merkleProof,
+		ProofIndex:       proofIndex,
+		Offset:           offset,
+		ClientStringHash: clientStringHash,
 	}
 
 	assignment.ClientString = make([]frontend.Variable, len(clientString))
