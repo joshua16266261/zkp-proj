@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
-	"github.com/consensys/gnark-crypto/accumulator/merkletree"
-	"github.com/consensys/gnark-crypto/hash"
+	"github.com/txaty/go-merkletree"
 )
 
 func multiply(left []string, right []string) []string {
@@ -69,6 +66,14 @@ func expandPattern(pattern string, maxOffset int) []string {
 	return expanded
 }
 
+type stringData struct {
+	string
+}
+
+func (s *stringData) Serialize() ([]byte, error) {
+	return []byte(s.string), nil
+}
+
 func Protocol0(stringPatterns []string, clientString string) {
 	// Expand out wildcards and offsets in patterns
 	fmt.Println("Expanding patterns...")
@@ -77,65 +82,48 @@ func Protocol0(stringPatterns []string, clientString string) {
 		expandedPatterns = append(expandedPatterns, expandPattern(pattern, len(clientString)-len(pattern))...)
 	}
 
-	// Find index of expanded pattern that matches clientString
-	var proofIndex uint64
-	for i, pattern := range expandedPatterns {
-		if clientString == pattern {
-			proofIndex = uint64(i)
-			break
-		}
-	}
-
-	// Hash patterns
-	fmt.Println("Hashing expanded patterns...")
-	var hashedPatterns [][]byte
-	for _, pattern := range expandedPatterns {
-		hashedPattern, err := getHash(pattern)
-		if err != nil {
-			fmt.Println("Error hashing pattern:", err)
-			return
-		}
-		hashedPatterns = append(hashedPatterns, hashedPattern)
-	}
-
-	// Build merkle proof
-	fmt.Println("Building merkle proof...")
+	// Build merkle tree
+	fmt.Println("Building merkle tree...")
 	start := time.Now()
-	var buf bytes.Buffer
-	for _, pattern := range hashedPatterns {
-		buf.Write(pattern)
+	leaves := make([]merkletree.DataBlock, len(expandedPatterns))
+	for i := range expandedPatterns {
+		leaves[i] = &stringData{expandedPatterns[i]}
 	}
 
-	hGo := hash.MIMC_BN254.New()
-	segmentSize := 32
-	merkleRoot, proofPath, _, err := merkletree.BuildReaderProof(bytes.NewReader(buf.Bytes()), hGo, segmentSize, proofIndex)
-	// The actual value of the leaf is proofPath[0]
+	tree, err := merkletree.New(
+		&merkletree.Config{
+			Mode:          merkletree.ModeProofGenAndTreeBuild,
+			RunInParallel: true,
+		},
+		leaves,
+	)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to build merkle tree:", err)
 		return
 	}
 	duration := time.Since(start)
+	fmt.Println("Setup time:", duration)
+
+	// Generate merkle proof
+	fmt.Println("Generating merkle proof...")
+	start = time.Now()
+	proof, err := tree.Proof(&stringData{clientString})
+	if err != nil {
+		fmt.Println("failed to generate merkle proof:", err)
+		return
+	}
+	duration = time.Since(start)
 	fmt.Println("Prover time:", duration)
 
 	// Verify merkle proof
 	start = time.Now()
-	isValidProof := merkletree.VerifyProof(hGo, merkleRoot, proofPath, proofIndex, uint64(len(expandedPatterns)))
-	if !isValidProof {
-		fmt.Println("failed to verify proof")
-		return
-	}
-
-	// Hash client string
-	hashedClientString, err := getHash(clientString)
+	isValidProof, err := tree.Verify(&stringData{clientString}, proof)
 	if err != nil {
-		fmt.Println("Error hashing clientString:", err)
+		fmt.Println("error verifying proof:", err)
 		return
 	}
-
-	// Check equality of clientString and pattern
-	patternEqualsString := reflect.DeepEqual(hashedClientString, proofPath[0])
-	if !patternEqualsString {
-		fmt.Println("client string and pattern do not match")
+	if !isValidProof {
+		fmt.Println("invalid proof")
 		return
 	}
 	duration = time.Since(start)
